@@ -1,3 +1,8 @@
+# Authors:
+# Denis Karakoç, s4835093
+# Piotr Leszmann, s4771826
+# Pelle Kools, s1010033
+
 import numpy as np
 import numpy.matlib
 import matplotlib.pyplot as plt
