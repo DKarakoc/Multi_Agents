@@ -12,7 +12,7 @@ import scipy.optimize as opt
 import os
 import sys
 
-
+# An agent class that stores values that are specific to each agent
 class Agent:
 
     # Constructor
@@ -55,8 +55,8 @@ class Agent:
         forward = np.random.permutation(forward)
         fs = []
         for element in forward:
-            if element[0] >= 0 and element[0] < (self.width):
-                if element[1] >= 0 and element[1] < self.height:
+            if 0 <= element[0] < self.width:
+                if 0 <= element[1] < self.height:
                     fs.append(element)
         return fs
 
@@ -69,7 +69,6 @@ class Agent:
 
     # computes utility of states
     def utility(self, state):
-        # compute cost funtion J of all potential forward states (brute force method)
         map = np.zeros((self.map_size[0], self.map_size[1]))
         for i in range(self.map_size[0]):
             for j in range(self.map_size[1]):
@@ -94,12 +93,12 @@ class Agent:
                 updated_belief[i, j] = prior[i, j] * self.nodetect_observation(self.x, i, j)
 
         # normalize belief
-        norm_factor = sum(sum(updated_belief))  # maybe fix?
-        # print('normalization factor: ', norm_factor)
+        norm_factor = sum(sum(updated_belief))
         belief = updated_belief / norm_factor
         self.bk = belief
         return belief
 
+    # computes the next best state given agent's current state self.x
     def next_best_state(self):
         fs = self.forward()
         utilities = []
@@ -134,7 +133,6 @@ class Agent:
         plt.pause(0.1)  # animation
 
     def plot2(self, ax):
-        # ax.contourf(self.X, self.Y, self.bk, zdir='z', offset=self.offset, alpha=0.8, cmap=cm.viridis)
         ax.plot(self.track[:, 0], self.track[:, 1], np.ones(self.track.shape[0]) * self.height_plot, 'r-', linewidth=2);
         ax.plot([self.track[-1, 0], self.track[-1, 0]], [self.track[-1, 1], self.track[-1, 1]], [self.height_plot, 0],
                 'ko-', linewidth=2);
@@ -148,7 +146,7 @@ class Agent:
     def get_state(self):
         return self.x
 
-
+# class storing all the variables that are shared among agents
 class Environment:
     def __init__(self):
 
@@ -165,6 +163,7 @@ class Environment:
 
         self.beliefs = self.bivariate_gaussian()
 
+    # function for computing the prior
     def bivariate_gaussian(self):
         beliefs = np.zeros((40, 40))
         for i in range(self.width):
@@ -183,8 +182,11 @@ class Environment:
     def get_height(self):
         return self.height
 
-    def get_size(self):
+    def get_XY(self):
         return self.X, self.Y
+
+    def get_size(self):
+        return self.width, self.height
 
     def get_prior(self):
         return self.beliefs
@@ -202,11 +204,6 @@ agents = []
 agents.append(Agent(0, state=np.array([10,20]), bk=belief.flatten(), offset = -0.002))
 agents.append(Agent(1, state=np.array([15,25]), bk=belief.flatten(), offset = 0.06))
 
-# Global plot for animations
-fig = plt.figure()
-ax = fig.gca(projection='3d')
-plt.ion()
-
 # Start algorithm
 ite = 0  # iteration count
 nite = 50  # number of iterations
@@ -214,20 +211,19 @@ found = 0  # target found
 
 ## start search
 while not found and ite < nite:
-    #
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    print('\n', ite)
+
     for agent in agents:
         print(agent)
         move = agent.next_best_state()
-        print('agent state: ', agent.get_state())
-        print('move: ', move)
         agent.next(move)
         belief = agent.update_belief(belief)
-        X, Y = env.get_size()
-        ax.contourf(X, Y, belief.reshape((map_size[0], map_size[1])), zdir='z', offset=-0.002, alpha=1, cmap=cm.viridis)
+        X, Y = env.get_XY()
+        width, height = env.get_size()
         agent.plot2(ax)
+
+    ax.contourf(X, Y, belief.reshape((width, height)), zdir='z', offset=-0.002, alpha=1, cmap=cm.viridis)
 
     # plot
     plt.draw()

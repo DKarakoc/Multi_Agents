@@ -13,12 +13,14 @@ import copy
 import os
 import sys
 
+# defining global variables
 map_size = [40,40]
 x = np.arange(map_size[0])
 y = np.arange(map_size[1])
 X, Y = np.meshgrid(x, y)
 
-class AgentContinuos():
+# An continuous agent class that stores values that are specific to each agent
+class AgentContinuous():
 
     # Constructor
     def __init__(self, state=np.array([0,0,0.2])):
@@ -55,12 +57,14 @@ class AgentContinuos():
 
         self.track = np.vstack((self.track, self.x))
 
+    # compute probability of not detecting the target at position (i, j) when agent is at state x
     def pnd(self, x, i, j):
         d = math.sqrt(math.pow((i - x[0]), 2) + math.pow((j - x[1]), 2))
         pd = self.Pdmax * math.exp(-self.sigma * math.pow(d / self.dmax, 2))
         pnd = 1 - pd
         return pnd
 
+    # update belief
     def update_belief(self, belief):
         prior = belief.reshape((map_size[0], map_size[1]))
         updated_belief = np.zeros((self.width, self.height))
@@ -69,10 +73,6 @@ class AgentContinuos():
             for j in range(len(updated_belief)):
                 updated_belief[i, j] = prior[i, j] * self.pnd(self.x, i, j)
 
-        # normalize belief
-        # norm_factor = sum(sum(updated_belief))  # maybe fix?
-        # print('normalization factor: ', norm_factor)
-        # belief = updated_belief / norm_factor
         self.bk = updated_belief.flatten()
         return updated_belief.flatten()
 
@@ -81,7 +81,8 @@ class AgentContinuos():
         ax.plot([self.track[-1, 0], self.track[-1, 0]], [self.track[-1, 1], self.track[-1, 1]], [self.height_plot, 0],
                 'ko-', linewidth=2);
 
-a = AgentContinuos()
+
+a = AgentContinuous()
 
 for i in range(8):
     a.next(0.15)
@@ -93,6 +94,8 @@ ax.plot(a.track[:, 0], a.track[:, 1], np.ones(a.track.shape[0]) * 0.1, 'r-', lin
 ax.plot([a.track[-1, 0], a.track[-1, 0]], [a.track[-1, 1], a.track[-1, 1]], [0.1, 0], 'ko-', linewidth=2);
 plt.show()
 
+
+# compute combined utility for multiple agents N steps ahead
 def multi_utility(uk, agents, N, bk):
     uk = uk.reshape((N, len(agents)))
     copied_agents = copy.deepcopy(agents)
@@ -105,6 +108,8 @@ def multi_utility(uk, agents, N, bk):
             copied_bk = agent.update_belief(copied_bk)
     return sum(copied_bk)
 
+
+# optimize the turning angles
 class Optimizer:
 
     def __init__(self):
@@ -124,6 +129,7 @@ class Optimizer:
         return res
 
 
+# function for computing the prior distribution
 def bivariate_gaussian(mu, Sigma):
     beliefs = np.zeros((map_size[0], map_size[1]))
     for i in range(beliefs.shape[0]):
@@ -135,13 +141,16 @@ def bivariate_gaussian(mu, Sigma):
     beliefs = beliefs / np.sum(beliefs)
     return beliefs
 
+
+# defining and computing the prior distribution
 mu = np.array([map_size[0]/2., map_size[1]/2.])# center point
 Sigma = np.array([[40,0],[0,60]]) # Bimodal covariance with no dependence.
 belief = bivariate_gaussian(mu, Sigma).flatten()
 
-a1 = AgentContinuos(state=np.array([10.,5., 0.2]))
-a2 = AgentContinuos(state=np.array([15.,30., 0.2]))
-a3 = AgentContinuos(state=np.array([30.,0., 0.2]))
+# initializing agents
+a1 = AgentContinuous(state=np.array([10.,5., 0.2]))
+a2 = AgentContinuous(state=np.array([15.,30., 0.2]))
+a3 = AgentContinuous(state=np.array([30.,0., 0.2]))
 
 agents=[a1,a2,a3]
 
@@ -156,26 +165,19 @@ print(x0.shape)
 o = Optimizer()
 
 while not found and ite < nite:
-
-    # Compute next best state for each agent given the common belief
-    predictions = o.optimize(multi_utility, x0, agents, N, belief)
-    print(predictions.x)
-    predictions = predictions.x.reshape((N, len(agents)))[0]
-    for index, move in enumerate(predictions):
-        agents[index].next(move)
-        print(agents[index].x)
-        belief = agents[index].update_belief(belief)
-
-    # plot
     fig1 = plt.figure()
     ax = fig1.gca(projection='3d')
+
+    # Compute next best state for each agent given the common belief
+    moves = o.optimize(multi_utility, x0, agents, N, belief)
+    moves = moves.x.reshape((N, len(agents)))[0]
+    for index, move in enumerate(moves):
+        agents[index].next(move)
+        belief = agents[index].update_belief(belief)
+        agents[index].plot(ax)
+
     ax.contourf(Y, X, belief.reshape((map_size[0], map_size[1])), zdir='z', offset=-0.002, cmap=cm.viridis, alpha=0.5)
 
-    for a in agents:
-        a.plot(ax)
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.set_zlabel('P')
     plt.draw()
     plt.pause(0.1)
     ax.cla()
